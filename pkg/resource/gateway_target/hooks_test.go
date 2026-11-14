@@ -384,3 +384,44 @@ func TestCompareConnectorParameterValues_OrderIndependent(t *testing.T) {
 		t.Errorf("expected no delta for reordered configs, got %d", len(delta.Differences))
 	}
 }
+
+func makeConnectorSourceResource(version *string) *resource {
+	return &resource{
+		ko: &svcapitypes.GatewayTarget{
+			Spec: svcapitypes.GatewayTargetSpec{
+				TargetConfiguration: &svcapitypes.TargetConfiguration{
+					Mcp: &svcapitypes.McpTargetConfiguration{
+						Connector: &svcapitypes.ConnectorTargetConfiguration{
+							Source: &svcapitypes.ConnectorSource{
+								ConnectorID: aws.String("web-search"),
+								Version:     version,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestLateInitConnectorSourceVersion(t *testing.T) {
+	desired := makeConnectorSourceResource(nil)
+	latest := makeConnectorSourceResource(aws.String("1.1.0"))
+	lateInitConnectorSourceVersion(desired, latest)
+	if got := desired.ko.Spec.TargetConfiguration.Mcp.Connector.Source.Version; got == nil || *got != "1.1.0" {
+		t.Fatalf("unset version: got %v, want 1.1.0", got)
+	}
+	delta := newResourceDelta(desired, latest)
+	if delta.DifferentAt("Spec.TargetConfiguration.Mcp.Connector.Source.Version") {
+		t.Fatalf("unset version still differs: %v", delta.Differences)
+	}
+
+	pinned := makeConnectorSourceResource(aws.String("1.0.0"))
+	lateInitConnectorSourceVersion(pinned, latest)
+	if got := *pinned.ko.Spec.TargetConfiguration.Mcp.Connector.Source.Version; got != "1.0.0" {
+		t.Fatalf("pinned version overwritten: got %s", got)
+	}
+	if !newResourceDelta(pinned, latest).DifferentAt("Spec.TargetConfiguration.Mcp.Connector.Source.Version") {
+		t.Fatalf("pinned version must still differ from the live one")
+	}
+}

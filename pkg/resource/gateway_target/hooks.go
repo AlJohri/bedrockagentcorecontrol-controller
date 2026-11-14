@@ -516,3 +516,27 @@ func compareInlinePayloadToolDefinitions(
 		}
 	}
 }
+
+// lateInitConnectorSourceVersion copies the connector version that the API
+// reports into the desired spec when the spec does not set one. The API picks
+// the latest connector version on create and returns it from GetGatewayTarget,
+// so without this an unset spec.version differs from the live value on every
+// reconcile and drives a perpetual UpdateGatewayTarget loop.
+func lateInitConnectorSourceVersion(a, b *resource) {
+	aSrc := getMcpConnectorSource(a.ko.Spec.TargetConfiguration)
+	bSrc := getMcpConnectorSource(b.ko.Spec.TargetConfiguration)
+	if aSrc == nil || bSrc == nil {
+		return
+	}
+	if aSrc.Version == nil && bSrc.Version != nil {
+		v := *bSrc.Version
+		aSrc.Version = &v
+	}
+}
+
+func getMcpConnectorSource(tc *svcapitypes.TargetConfiguration) *svcapitypes.ConnectorSource {
+	if tc == nil || tc.Mcp == nil || tc.Mcp.Connector == nil {
+		return nil
+	}
+	return tc.Mcp.Connector.Source
+}

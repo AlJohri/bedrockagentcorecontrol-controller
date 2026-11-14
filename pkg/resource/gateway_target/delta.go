@@ -43,6 +43,7 @@ func newResourceDelta(
 	}
 	compareInlinePayloadToolDefinitions(delta, a, b)
 	compareConnectorParameterValues(delta, a, b)
+	lateInitConnectorSourceVersion(a, b)
 
 	if len(a.ko.Spec.CredentialProviderConfigurations) != len(b.ko.Spec.CredentialProviderConfigurations) {
 		delta.Add("Spec.CredentialProviderConfigurations", a.ko.Spec.CredentialProviderConfigurations, b.ko.Spec.CredentialProviderConfigurations)
